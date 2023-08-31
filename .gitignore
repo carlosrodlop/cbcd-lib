@@ -1,0 +1,5 @@
+*.jar
+.idea
+.env
+!.env.example
+target
