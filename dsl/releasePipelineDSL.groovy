@@ -1,25 +1,28 @@
 /**
- * This is a DSL script to create an Upstream Release Pipeline calling a Downstream Release Pipeline.
+ * Copy and Paste this DSL code into DevOps Essencial DSL Editor in CloudBees CD Server
  * Outputs:
- * - Project to host Admin Resources
- * - Downstream Release Pipeline (Admin Full Permissions, Read Permissions of the Rest)
- * - Service Catalog ==> Catalog Item ==> Onboard New Application
- * - Service Catalog ==> Catalog Item ==> New Release for existing Application 
+ * - Project to host Admin Resources, including:
+ *  - Downstream Release Pipeline
+ * - Service Catalog ==> Catalog Item ==> Onboard New Application. Outputs:
+ *  - First Upstream Release Pipeline
+ *  - Service Catalog ==> Catalog Item ==> New Release for existing Application. Outputs:
+ *    - Upstream Release Pipeline consecutive Release
  */
 
-org='Example'
+def org='ExampleOrg'
 def version='1.0.0'
-def varProjectName = org + '-ADMIN'
+def varAdminProjectName = org + '-ADMIN'
 def varAdminGroupCDServer = 'SDAAdmins'
 def varDownReleaseName = org + '_DOWNSTREAM_RELEASE_' + version
 def varDownPipelineName = 'pipeline_' + varDownReleaseName
-def varCatalogNameNewApp = org + '_NEW_APPLICATION' + version
+def varCatalogNameNewApp = org + '_NEW_APPLICATION_' + version
 def varCatalogNameNewAppItem = varCatalogNameNewApp
-
-project varProjectName, {
+def varCatalogNameNewRelease = org + '_NEW_RELEASE_' + version
+def varCatalogNameNewReleaseItem = varCatalogNameNewRelease
+project varAdminProjectName, {
   // Downstream Pipeline
   release varDownReleaseName, {
-    projectName = varProjectName
+    projectName = varAdminProjectName
     pipeline varDownPipelineName, {
       releaseName = varDownReleaseName
       formalParameter 'param1', defaultValue: '', {
@@ -36,11 +39,20 @@ project varProjectName, {
         required = '1'
         type = 'entry'
       }
+      formalParameter 'projParam', defaultValue: '', {
+        expansionDeferred = '0'
+        label = 'Project Param'
+        orderIndex = '3'
+        required = '1'
+        type = 'entry'
+      }
       stage 'Stage 1', {
         pipelineName = varDownPipelineName
         task 'echo', {
-          command = '''echo "Param 1:   $[param1]"
-echo "Param 2:  $[param2]"'''
+          command = '''echo "Release Param 1:  $[param1]"
+echo "Release Param 2: $[param2]"
+echo "Project Param: $[projParam]"
+'''
           enabled = '1'
           errorHandling = 'stopOnError'
           resourceName = ''
@@ -73,7 +85,7 @@ echo "Param 2:  $[param2]"'''
   } // End of Downtream Pipeline
   // Service Catalog - Onboard New Applications
   catalog varCatalogNameNewApp, {
-    projectName = varProjectName
+    projectName = varAdminProjectName
     catalogItem varCatalogNameNewAppItem, {
       description = '''<xml>
 <title>
@@ -91,7 +103,7 @@ Onboard New Application for CISCO CD Server. Version: 1.0.0.
 Constants (mapping)
 ********************/
 conPreffix = \'''' + org + '''\'
-conAdminProject = \'''' + varProjectName + '''\'
+conAdminProject = \'''' + varAdminProjectName + '''\'
 conDownstreamRelease = \'''' + varDownReleaseName + '''\'
 /*******************
 Variables
@@ -104,12 +116,11 @@ def varReleaseName = varProjectName + \'-\' + args.version
 def varPipelineName = \'pipeline_\' + varReleaseName
 def varParam1 = args.param1
 def varParam2 = args.param2
-// Setter properties to new Project
 def varProjectProp = args.projectProp
 /*******************
-Create Release Pipeline
+Create Upstream Release Pipeline
 ********************/
-def createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varPipelineName, varTeamGroup){
+def createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamGroup){
 release varReleaseName, {
 projectName = varProjectName
 pipeline varPipelineName, { // Upstream Pipeline Definition
@@ -127,7 +138,14 @@ label = \'Param 2\'
 orderIndex = \'2\'
 required = \'1\'
 type = \'entry\'
-}      
+}
+formalParameter \'projParam\', defaultValue: varProjectProp, {
+expansionDeferred = \'0\'
+label = \'Project Param\'
+orderIndex = \'3\'
+required = \'1\'
+type = \'entry\'
+}
 stage \'Stage 1\', {
 pipelineName = varPipelineName
 task \'Call downstream\', {
@@ -136,6 +154,7 @@ actionLabelText = null
 actualParameter = [
 \'param1\': \'$[param1]\',
 \'param2\': \'$[param2]\',
+\'projParam\': \'$[projParam]\',
 ]
 errorHandling = \'stopOnError\'
 subErrorHandling = \'continueOnError\'
@@ -166,8 +185,9 @@ readPrivilege = \'inherit\'
 Main
 ********************/
 project varProjectName, {
-// Common properties for Team - Application
+// Setter properties to new Project: Team - Application
 ProjectProp1 = varProjectProp
+ReleasePMGroup = varTeamReleasePMGroup
 acl {
 inheriting = \'1\'
 aclEntry \'user\', principalName: varTeam, {
@@ -183,14 +203,140 @@ modifyPrivilege = \'allow\'
 readPrivilege = \'allow\'
 }
 } //End ACL Project
-createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varPipelineName, varTeamReleasePMGroup)
-//TODO: Create Promotion Pipeline
+createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamReleasePMGroup)
+//TODO: createPromotionPipeline
+/*******************
+Service Catalog for New Release
+********************/
+catalog \'''' + varCatalogNameNewRelease + '''\', {
+projectName = varProjectName
+catalogItem \'''' + varCatalogNameNewReleaseItem + '''\', {
+description = \'\'\'<xml>
+<title>
+Create New Release from an already onboarded Application for CISCO CD Server. Version: 1.0.0.
+</title>
+<htmlData>
+<![CDATA[
+]]>
+</htmlData>
+</xml>\'\'\'
+allowScheduling = \'0\'
+buttonLabel = \'Create\'
+catalogName = \'''' + varCatalogNameNewRelease + '''\'
+dslString = \'\'\'
+/*******************
+Constants (mapping)
+********************/
+conPreffix = \'''' + org + '''\'
+conAdminProject = \'''' + varAdminProjectName + '''\'
+conDownstreamRelease = \'''' + varDownReleaseName + '''\'
+conProjectName = \\\'\'\'\' + varProjectName + \'\'\'\\\'
+/*******************
+Variables
+********************/
+def varReleaseName = conProjectName + \\\'-\\\' + args.version
+def varPipelineName = \\\'pipeline_\\\' + varReleaseName
+def varParam1 = args.param1
+def varParam2 = args.param2
+// Getter properties from an onboarded Project
+def varProjectProp = getProperties(projectName: conProjectName).ProjectProp1.value
+def varTeamReleasePMGroup = getProperties(projectName: conProjectName).ReleasePMGroup.value
+/*******************
+Create Release Pipeline
+********************/
+def createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamGroup){
+release varReleaseName, {
+projectName = conProjectName
+pipeline varPipelineName, { // Upstream Pipeline Definition
+releaseName = varReleaseName
+formalParameter \\\'param1\\\', defaultValue: varParam1, {
+expansionDeferred = \\\'0\\\'
+label = \\\'Param 1\\\'
+orderIndex = \\\'1\\\'
+required = \\\'1\\\'
+type = \\\'entry\\\'
+}
+formalParameter \\\'param2\\\', defaultValue: varParam2, {
+expansionDeferred = \\\'0\\\'
+label = \\\'Param 2\\\'
+orderIndex = \\\'2\\\'
+required = \\\'1\\\'
+type = \\\'entry\\\'
+}
+formalParameter \\\'projParam\\\', defaultValue: varProjectProp, {
+expansionDeferred = \\\'0\\\'
+label = \\\'Project Param\\\'
+orderIndex = \\\'3\\\'
+required = \\\'1\\\'
+type = \\\'entry\\\'
+}
+stage \\\'Stage 1\\\', {
+pipelineName = varPipelineName
+task \\\'Call downstream\\\', {
+description = \\\'\\\'
+actionLabelText = null
+actualParameter = [
+\\\'param1\\\': \\\'$[param1]\\\',
+\\\'param2\\\': \\\'$[param2]\\\',
+\\\'projParam\\\': \\\'$[projParam]\\\',
+]
+errorHandling = \\\'stopOnError\\\'
+subErrorHandling = \\\'continueOnError\\\'
+subproject = conAdminProject
+subrelease = conDownstreamRelease
+taskType = \\\'RELEASE\\\'
+triggerType = \\\'async\\\'
+} // End Task
+}//End Stage
+}//End Pipeline
+subrelease {
+subreleaseName = conDownstreamRelease
+subreleaseProject = conAdminProject
+}
+acl {
+inheriting = \\\'1\\\'
+// Update this part for release or promotion respectively
+aclEntry \\\'user\\\', principalName: varTeamGroup, {
+changePermissionsPrivilege = \\\'inherit\\\'
+executePrivilege = \\\'allow\\\'
+modifyPrivilege = \\\'inherit\\\'
+readPrivilege = \\\'inherit\\\'
+}
+}//End ACL Release
+}//End Release
+}
+createReleasePipeline(varReleaseName, conProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamReleasePMGroup)
+\'\'\'
+endTargetJson = \'\'
+iconUrl = \'icon-process.svg\'
+templateObjectType = \'none\'
+useFormalParameter = \'1\'
+formalParameter \'version\', defaultValue: \'1.1.1\', {
+expansionDeferred = \'0\'
+label = \'Version ID\'
+orderIndex = \'1\'
+required = \'1\'
+type = \'entry\'
+}
+formalParameter \'param1\', defaultValue: \'foo\', {
+expansionDeferred = \'0\'
+label = \'Release Property 1\'
+orderIndex = \'2\'
+required = \'1\'
+type = \'entry\'
+}
+formalParameter \'param2\', defaultValue: \'bar\', {
+expansionDeferred = \'0\'
+label = \'Release Property 2\'
+orderIndex = \'3\'
+required = \'1\'
+type = \'entry\'
+}
+} // End of catalogItem varCatalogNameNewReleaseItem
+} // End of catalog varCatalogNameNewRelease
 } //End Project'''
       endTargetJson = ''
       iconUrl = 'icon-process.svg'
-      subpluginKey = null
-      subprocedure = null
-      subproject = null
       templateObjectType = 'none'
       useFormalParameter = '1'
       formalParameter 'team', defaultValue: 'SDAAdmins', {
@@ -252,7 +398,6 @@ createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varP
     } // End of catalogItem varCatalogNameNewAppItem
     acl {
       inheriting = '1'
-
       aclEntry 'group', principalName: varAdminGroupCDServer, {
         changePermissionsPrivilege = 'allow'
         executePrivilege = 'allow'
