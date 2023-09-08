@@ -15,10 +15,10 @@ goto_online_docs:
 get_project: ## Get project pass as env variable
 get_project:
 	source ../.env && \
-		bash cdcb-rest-get.sh projects/$$PROJECT_NAME
+		bash cdcb-rest.sh --type -XGET --operation projects/$$PROJECT_NAME
 
 .PHONY: delete_projects
 delete_project: ## Delete project pass as env variable
 delete_project:
 	source ../.env && \
-		bash cdcb-rest-delete.sh projects/$$PROJECT_NAME
+		bash cdcb-rest.sh --type -XDELETE --operation projects/$$PROJECT_NAME
