@@ -11,16 +11,19 @@
 
 def org='ExampleOrg'
 def version='1.0.0'
+// Admin Project - Shared Resources
 def varAdminProjectName = org + '-ADMIN'
 def varAdminGroupCDServer = 'SDAAdmins'
 def varDownReleaseName = org + '_DOWNSTREAM_RELEASE_' + version
 def varDownPipelineName = 'pipeline_' + varDownReleaseName
+def varProcedureCreateUp = org + '_CREATE_UPSTREAM_' + version
+// Service Catalog - Templates - Applications Onboarding
 def varCatalogNameNewApp = org + '_NEW_APPLICATION_' + version
 def varCatalogNameNewAppItem = varCatalogNameNewApp
 def varCatalogNameNewRelease = org + '_NEW_RELEASE_' + version
 def varCatalogNameNewReleaseItem = varCatalogNameNewRelease
 project varAdminProjectName, {
-  procedure 'Create Upstream Pipeline', {
+  procedure varProcedureCreateUp, {
     projectName = varAdminProjectName
 
     formalParameter 'projName', defaultValue: 'ExampleOrg-SDAAdmins-ProductExample', {
@@ -88,25 +91,25 @@ release varReleaseName, {
   pipeline varPipelineName, { // Upstream Pipeline Definition
     releaseName = varReleaseName
     formalParameter \'param1\', defaultValue: varParam1, {
-    expansionDeferred = \'0\'
-    label = \'Param 1\'
-    orderIndex = \'1\'
-    required = \'1\'
-    type = \'entry\'
+      expansionDeferred = \'0\'
+      label = \'Param 1\'
+      orderIndex = \'1\'
+      required = \'1\'
+      type = \'entry\'
     }
     formalParameter \'param2\', defaultValue: varParam2, {
-    expansionDeferred = \'0\'
-    label = \'Param 2\'
-    orderIndex = \'2\'
-    required = \'1\'
-    type = \'entry\'
+      expansionDeferred = \'0\'
+      label = \'Param 2\'
+      orderIndex = \'2\'
+      required = \'1\'
+      type = \'entry\'
     }
     formalParameter \'projParam\', defaultValue: varProjectProp, {
-    expansionDeferred = \'0\'
-    label = \'Project Param\'
-    orderIndex = \'3\'
-    required = \'1\'
-    type = \'entry\'
+      expansionDeferred = \'0\'
+      label = \'Project Param\'
+      orderIndex = \'3\'
+      required = \'1\'
+      type = \'entry\'
     }
     stage \'Stage 1\', {
       pipelineName = varPipelineName
@@ -250,94 +253,38 @@ def varPipelineName = \'pipeline_\' + varReleaseName
 def varParam1 = args.param1
 def varParam2 = args.param2
 def varProjectProp = args.projectProp
-/*******************
-Create Upstream Release Pipeline
-********************/
-def createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamGroup){
-release varReleaseName, {
-projectName = varProjectName
-pipeline varPipelineName, { // Upstream Pipeline Definition
-releaseName = varReleaseName
-formalParameter \'param1\', defaultValue: varParam1, {
-expansionDeferred = \'0\'
-label = \'Param 1\'
-orderIndex = \'1\'
-required = \'1\'
-type = \'entry\'
-}
-formalParameter \'param2\', defaultValue: varParam2, {
-expansionDeferred = \'0\'
-label = \'Param 2\'
-orderIndex = \'2\'
-required = \'1\'
-type = \'entry\'
-}
-formalParameter \'projParam\', defaultValue: varProjectProp, {
-expansionDeferred = \'0\'
-label = \'Project Param\'
-orderIndex = \'3\'
-required = \'1\'
-type = \'entry\'
-}
-stage \'Stage 1\', {
-pipelineName = varPipelineName
-task \'Call downstream\', {
-description = \'\'
-actionLabelText = null
-actualParameter = [
-\'param1\': \'$[param1]\',
-\'param2\': \'$[param2]\',
-\'projParam\': \'$[projParam]\',
-]
-errorHandling = \'stopOnError\'
-subErrorHandling = \'continueOnError\'
-subproject = conAdminProject
-subrelease = conDownstreamRelease
-taskType = \'RELEASE\'
-triggerType = \'async\'
-} // End Task
-}//End Stage
-}//End Pipeline
-subrelease {
-subreleaseName = conDownstreamRelease
-subreleaseProject = conAdminProject
-}
-acl {
-inheriting = \'1\'
-// Update this part for release or promotion respectively
-aclEntry \'user\', principalName: varTeamGroup, {
-changePermissionsPrivilege = \'inherit\'
-executePrivilege = \'allow\'
-modifyPrivilege = \'inherit\'
-readPrivilege = \'inherit\'
-}
-}//End ACL Release
-}//End Release
-}
-/*******************
-Main
-********************/
+
 project varProjectName, {
-// Setter properties to new Project: Team - Application
-ProjectProp1 = varProjectProp
-ReleasePMGroup = varTeamReleasePMGroup
-acl {
-inheriting = \'1\'
-aclEntry \'user\', principalName: varTeam, {
-changePermissionsPrivilege = \'inherit\'
-executePrivilege = \'inherit\'
-modifyPrivilege = \'inherit\'
-readPrivilege = \'allow\'
-}
-aclEntry \'user\', principalName: \'project: \' + varProjectName, {
-changePermissionsPrivilege = \'allow\'
-executePrivilege = \'allow\'
-modifyPrivilege = \'allow\'
-readPrivilege = \'allow\'
-}
-} //End ACL Project
-createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamReleasePMGroup)
-//TODO: createPromotionPipeline
+  // Setter properties to new Project: Team - Application
+  ProjectProp1 = varProjectProp
+  ReleasePMGroup = varTeamReleasePMGroup
+  acl {
+    inheriting = \'1\'
+    aclEntry \'user\', principalName: varTeam, {
+      changePermissionsPrivilege = \'inherit\'
+      executePrivilege = \'inherit\'
+      modifyPrivilege = \'inherit\'
+      readPrivilege = \'allow\'
+    }
+    aclEntry \'user\', principalName: \'project: \' + varProjectName, {
+      changePermissionsPrivilege = \'allow\'
+      executePrivilege = \'allow\'
+      modifyPrivilege = \'allow\'
+      readPrivilege = \'allow\'
+    }
+  } //End ACL Project
+runProcedure(
+  projectName: \"'''+ varAdminProjectName +'''\",
+  procedureName: \"'''+ varProcedureCreateUp +'''\",
+  actualParameter: [
+    releaseName: varReleaseName,
+    projName: varProjectName,
+    param1: varParam1,
+    param2: varParam2,
+    projectProp: varProjectProp,
+    teamGroup: varTeamReleasePMGroup
+  ]
+)
 /*******************
 Service Catalog for New Release
 ********************/
@@ -374,71 +321,18 @@ def varParam2 = args.param2
 // Getter properties from an onboarded Project
 def varProjectProp = getProperties(projectName: conProjectName).ProjectProp1.value
 def varTeamReleasePMGroup = getProperties(projectName: conProjectName).ReleasePMGroup.value
-/*******************
-Create Release Pipeline
-********************/
-def createReleasePipeline(varReleaseName, varProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamGroup){
-release varReleaseName, {
-projectName = conProjectName
-pipeline varPipelineName, { // Upstream Pipeline Definition
-releaseName = varReleaseName
-formalParameter \\\'param1\\\', defaultValue: varParam1, {
-expansionDeferred = \\\'0\\\'
-label = \\\'Param 1\\\'
-orderIndex = \\\'1\\\'
-required = \\\'1\\\'
-type = \\\'entry\\\'
-}
-formalParameter \\\'param2\\\', defaultValue: varParam2, {
-expansionDeferred = \\\'0\\\'
-label = \\\'Param 2\\\'
-orderIndex = \\\'2\\\'
-required = \\\'1\\\'
-type = \\\'entry\\\'
-}
-formalParameter \\\'projParam\\\', defaultValue: varProjectProp, {
-expansionDeferred = \\\'0\\\'
-label = \\\'Project Param\\\'
-orderIndex = \\\'3\\\'
-required = \\\'1\\\'
-type = \\\'entry\\\'
-}
-stage \\\'Stage 1\\\', {
-pipelineName = varPipelineName
-task \\\'Call downstream\\\', {
-description = \\\'\\\'
-actionLabelText = null
-actualParameter = [
-\\\'param1\\\': \\\'$[param1]\\\',
-\\\'param2\\\': \\\'$[param2]\\\',
-\\\'projParam\\\': \\\'$[projParam]\\\',
-]
-errorHandling = \\\'stopOnError\\\'
-subErrorHandling = \\\'continueOnError\\\'
-subproject = conAdminProject
-subrelease = conDownstreamRelease
-taskType = \\\'RELEASE\\\'
-triggerType = \\\'async\\\'
-} // End Task
-}//End Stage
-}//End Pipeline
-subrelease {
-subreleaseName = conDownstreamRelease
-subreleaseProject = conAdminProject
-}
-acl {
-inheriting = \\\'1\\\'
-// Update this part for release or promotion respectively
-aclEntry \\\'user\\\', principalName: varTeamGroup, {
-changePermissionsPrivilege = \\\'inherit\\\'
-executePrivilege = \\\'allow\\\'
-modifyPrivilege = \\\'inherit\\\'
-readPrivilege = \\\'inherit\\\'
-}
-}//End ACL Release
-}//End Release
-}
-createReleasePipeline(varReleaseName, conProjectName, varParam1, varParam2, varProjectProp, varPipelineName, varTeamReleasePMGroup)
+runProcedure(
+  projectName: \"'''+ varAdminProjectName +'''\",
+  procedureName: \"'''+ varProcedureCreateUp +'''\",
+  actualParameter: [
+    releaseName: varReleaseName,
+    projName: conProjectName,
+    param1: varParam1,
+    param2: varParam2,
+    projectProp: varProjectProp,
+    teamGroup: varTeamReleasePMGroup
+  ]
+)
 \'\'\'
 endTargetJson = \'\'
 iconUrl = \'icon-process.svg\'
