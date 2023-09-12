@@ -2,6 +2,7 @@
  * Copy and Paste this DSL code into DevOps Essencial DSL Editor in CloudBees CD Server
  * Outputs:
  * - Project to host Admin Resources, including:
+ *  - Procedure to create Upstream Release Pipeline
  *  - Downstream Release Pipeline
  * - Service Catalog ==> Catalog Item ==> Onboard New Application. Outputs:
  *  - First Upstream Release Pipeline
@@ -11,18 +12,21 @@
 
 def org='ExampleOrg'
 def version='1.0.0'
-// Admin Project - Shared Resources
+// Admin Project
 def varAdminProjectName = org + '-ADMIN'
 def varAdminGroupCDServer = 'SDAAdmins'
 def varDownReleaseName = org + '_DOWNSTREAM_RELEASE_' + version
 def varDownPipelineName = 'pipeline_' + varDownReleaseName
 def varProcedureCreateUp = org + '_CREATE_UPSTREAM_' + version
-// Service Catalog - Templates - Applications Onboarding
+// Applications Project
 def varCatalogNameNewApp = org + '_NEW_APPLICATION_' + version
 def varCatalogNameNewAppItem = varCatalogNameNewApp
 def varCatalogNameNewRelease = org + '_NEW_RELEASE_' + version
 def varCatalogNameNewReleaseItem = varCatalogNameNewRelease
+
+// Project Admin
 project varAdminProjectName, {
+  // Project Admin - Procedure: Create Upstream Pipeline
   procedure varProcedureCreateUp, {
     projectName = varAdminProjectName
 
@@ -138,13 +142,13 @@ release varReleaseName, {
     inheriting = \'1\'
     // Update this part for release or promotion respectively
     aclEntry \'user\', principalName: varTeamGroup, {
-    changePermissionsPrivilege = \'inherit\'
-    executePrivilege = \'allow\'
-    modifyPrivilege = \'inherit\'
-    readPrivilege = \'inherit\'
-  }
+      changePermissionsPrivilege = \'inherit\'
+      executePrivilege = \'allow\'
+      modifyPrivilege = \'inherit\'
+      readPrivilege = \'inherit\'
+    }
   }//End ACL Release
-  }//End Release'''
+}//End Release'''
       errorHandling = 'failProcedure'
       exclusiveMode = 'none'
       parallel = '0'
@@ -155,8 +159,8 @@ release varReleaseName, {
       timeLimit = '0'
       timeLimitUnits = 'seconds'
     }
-  }
-  // Downstream Pipeline
+  } // End of Procedure Create Upstream Pipeline
+  // Project Admin - Release Pipeline: Downstream Release
   release varDownReleaseName, {
     projectName = varAdminProjectName
     pipeline varDownPipelineName, {
@@ -219,7 +223,7 @@ echo "Project Param: $[projParam]"
       }
     }
   } // End of Downtream Pipeline
-  // Service Catalog - Onboard New Applications
+  // Project Admin - Service Catalog: Onboard New Applications
   catalog varCatalogNameNewApp, {
     projectName = varAdminProjectName
     catalogItem varCatalogNameNewAppItem, {
@@ -235,15 +239,11 @@ Onboard New Application for CISCO CD Server. Version: 1.0.0.
       allowScheduling = '0'
       buttonLabel = 'Create'
       catalogName = varCatalogNameNewApp
-      dslString = '''/*******************
-Constants (mapping)
-********************/
+      dslString = '''//Constants (mapping)
 conPreffix = \'''' + org + '''\'
 conAdminProject = \'''' + varAdminProjectName + '''\'
 conDownstreamRelease = \'''' + varDownReleaseName + '''\'
-/*******************
-Variables
-********************/
+// Variables
 def varTeam = args.team
 def varTeamDeveloperGroup = args.devGroup
 def varTeamReleasePMGroup = args.releasePMGroup
@@ -254,6 +254,7 @@ def varParam1 = args.param1
 def varParam2 = args.param2
 def varProjectProp = args.projectProp
 
+// Applications Project
 project varProjectName, {
   // Setter properties to new Project: Team - Application
   ProjectProp1 = varProjectProp
@@ -273,25 +274,23 @@ project varProjectName, {
       readPrivilege = \'allow\'
     }
   } //End ACL Project
-runProcedure(
-  projectName: \"'''+ varAdminProjectName +'''\",
-  procedureName: \"'''+ varProcedureCreateUp +'''\",
-  actualParameter: [
-    releaseName: varReleaseName,
-    projName: varProjectName,
-    param1: varParam1,
-    param2: varParam2,
-    projectProp: varProjectProp,
-    teamGroup: varTeamReleasePMGroup
-  ]
-)
-/*******************
-Service Catalog for New Release
-********************/
-catalog \'''' + varCatalogNameNewRelease + '''\', {
-projectName = varProjectName
-catalogItem \'''' + varCatalogNameNewReleaseItem + '''\', {
-description = \'\'\'<xml>
+  runProcedure(
+    projectName: \"'''+ varAdminProjectName +'''\",
+    procedureName: \"'''+ varProcedureCreateUp +'''\",
+      actualParameter: [
+        releaseName: varReleaseName,
+        projName: varProjectName,
+        param1: varParam1,
+        param2: varParam2,
+        projectProp: varProjectProp,
+        teamGroup: varTeamReleasePMGroup
+      ]
+    )
+    // Applications Project - Service Catalog: New Release
+  catalog \'''' + varCatalogNameNewRelease + '''\', {
+    projectName = varProjectName
+    catalogItem \'''' + varCatalogNameNewReleaseItem + '''\', {
+      description = \'\'\'<xml>
 <title>
 Create New Release from an already onboarded Application for CISCO CD Server. Version: 1.0.0.
 </title>
@@ -300,20 +299,16 @@ Create New Release from an already onboarded Application for CISCO CD Server. Ve
 ]]>
 </htmlData>
 </xml>\'\'\'
-allowScheduling = \'0\'
-buttonLabel = \'Create\'
-catalogName = \'''' + varCatalogNameNewRelease + '''\'
-dslString = \'\'\'
-/*******************
-Constants (mapping)
-********************/
+      allowScheduling = \'0\'
+      buttonLabel = \'Create\'
+      catalogName = \'''' + varCatalogNameNewRelease + '''\'
+      dslString = \'\'\'
+// Constants (mapping)
 conPreffix = \'''' + org + '''\'
 conAdminProject = \'''' + varAdminProjectName + '''\'
 conDownstreamRelease = \'''' + varDownReleaseName + '''\'
 conProjectName = \\\'\'\'\' + varProjectName + \'\'\'\\\'
-/*******************
-Variables
-********************/
+// Variables
 def varReleaseName = conProjectName + \\\'-\\\' + args.version
 def varPipelineName = \\\'pipeline_\\\' + varReleaseName
 def varParam1 = args.param1
@@ -331,37 +326,36 @@ runProcedure(
     param2: varParam2,
     projectProp: varProjectProp,
     teamGroup: varTeamReleasePMGroup
-  ]
-)
-\'\'\'
-endTargetJson = \'\'
-iconUrl = \'icon-process.svg\'
-templateObjectType = \'none\'
-useFormalParameter = \'1\'
-formalParameter \'version\', defaultValue: \'1.1.1\', {
-expansionDeferred = \'0\'
-label = \'Version ID\'
-orderIndex = \'1\'
-required = \'1\'
-type = \'entry\'
-}
-formalParameter \'param1\', defaultValue: \'foo\', {
-expansionDeferred = \'0\'
-label = \'Release Property 1\'
-orderIndex = \'2\'
-required = \'1\'
-type = \'entry\'
-}
-formalParameter \'param2\', defaultValue: \'bar\', {
-expansionDeferred = \'0\'
-label = \'Release Property 2\'
-orderIndex = \'3\'
-required = \'1\'
-type = \'entry\'
-}
-} // End of catalogItem varCatalogNameNewReleaseItem
-} // End of catalog varCatalogNameNewRelease
-} //End Project'''
+        ]
+    )\'\'\'
+    endTargetJson = \'\'
+    iconUrl = \'icon-process.svg\'
+    templateObjectType = \'none\'
+    useFormalParameter = \'1\'
+    formalParameter \'version\', defaultValue: \'1.1.1\', {
+      expansionDeferred = \'0\'
+      label = \'Version ID\'
+      orderIndex = \'1\'
+      required = \'1\'
+      type = \'entry\'
+    }
+    formalParameter \'param1\', defaultValue: \'foo\', {
+      expansionDeferred = \'0\'
+      label = \'Release Property 1\'
+      orderIndex = \'2\'
+      required = \'1\'
+      type = \'entry\'
+    }
+    formalParameter \'param2\', defaultValue: \'bar\', {
+      expansionDeferred = \'0\'
+      label = \'Release Property 2\'
+      orderIndex = \'3\'
+      required = \'1\'
+      type = \'entry\'
+    }
+    } // End of catalogItem varCatalogNameNewReleaseItem
+    } // End of catalog varCatalogNameNewRelease
+    } //End Project'''
       endTargetJson = ''
       iconUrl = 'icon-process.svg'
       templateObjectType = 'none'
@@ -433,4 +427,4 @@ type = \'entry\'
       }
     }
   } // End of catalog varCatalogNameNewApp
-} // End of project varProjectName
+} // End of project varAdminProjectName
